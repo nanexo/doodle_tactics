@@ -63,7 +63,7 @@ pub fn map_system(
             else
             {
                 commands.entity(entity)
-                    .insert(Attacking { target: *closest_player_unit.0 });
+                    .insert(Attacking::with_target(*closest_player_unit.0));
             }
         }
     }
@@ -85,6 +85,54 @@ pub fn moving_system(
 
             transform.translation = start.lerp(end, current_time / ANIMATION_TIME);
             moving.time = current_time;
+        }
+    }
+}
+
+pub fn attack_system(
+    mut attacking_units_query: Query<(Entity, &Position, &mut Attacking)>,
+    mut transform_query: Query<&mut Transform>,
+    time: Res<Time>,
+    entities: &Entities,
+    mut commands: Commands
+)
+{
+    for (e, position, mut attacking) in attacking_units_query.iter_mut() {
+
+        const ATTACK_SPEED: f32 = 0.75;
+
+        // verify target still lives
+        if entities.contains(attacking.target) {
+            let current_time = attacking.time + time.delta_seconds();
+
+            if current_time > ATTACK_SPEED {
+                attacking.time = 0.;
+                continue;
+            }
+
+            if let Ok(target_transform) = transform_query.get(attacking.target) {
+                if let Ok(mut unit_transform) = transform_query.get_mut(e) {
+                    const MOVE_RANGE : f32 = 0.3;
+                    let start_position = position.to_translation();
+                    let end_position = target_transform.translation;
+                    let animation_position = {
+                        let position = current_time / ATTACK_SPEED;
+                        if position > 0.5 {
+                            0.5 - (position - 0.5)
+                        } else {
+                            position
+                        }
+                    };
+    
+                    unit_transform.translation = start_position.lerp(end_position, animation_position * MOVE_RANGE)
+                } 
+
+            }
+            attacking.time = current_time;
+
+        } else {
+            // target died, remove attacking component
+            commands.entity(e).remove::<Attacking>();
         }
     }
 }

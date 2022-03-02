@@ -1,3 +1,3 @@
-mod movement;
+mod map;
 
-pub use movement::*;
+pub use map::*;

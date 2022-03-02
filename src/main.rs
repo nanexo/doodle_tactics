@@ -4,6 +4,7 @@ mod systems;
 mod prelude {
  pub use bevy::prelude::*;
  pub use bevy::sprite::{SpriteBundle};
+ pub use bevy::ecs::entity::*;
  pub use bevy_asset_loader::{AssetLoader, AssetCollection};
  pub use crate::components::*;
  pub use crate::systems::*;
@@ -40,6 +41,7 @@ fn main() {
         .add_system_set(SystemSet::new()
             .with_system(map_system)
             .with_system(position_unit)
+            .with_system(attack_system)
             .with_system(moving_system))
         .run();
 }

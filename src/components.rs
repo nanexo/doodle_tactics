@@ -61,5 +61,15 @@ pub struct Health {
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct Attacking {
     pub target: Entity,
+    pub time: f32,
 }
 
+
+impl Attacking {
+    pub fn with_target(target: Entity) -> Self {
+        Attacking {
+            target,
+            time: 0.
+        }
+    }
+}
