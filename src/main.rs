@@ -1,24 +1,27 @@
-use bevy::{
-    prelude::*, sprite::{SpriteBundle, MaterialMesh2dBundle}, render::render_resource::SamplerDescriptor,
-};
-use bevy_asset_loader::{AssetLoader, AssetCollection};
+mod components;
+mod systems;
 
+mod prelude {
+ pub use bevy::prelude::*;
+ pub use bevy::sprite::{SpriteBundle};
+ pub use bevy_asset_loader::{AssetLoader, AssetCollection};
+ pub use crate::components::*;
+ pub use crate::systems::*;
+}
+
+use prelude::*;
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 enum MyStates {
     AssetLoading,
     Next,
 }
 
-struct RepeatedBackgroundImage {
-    repeated: Handle<Image>,
-}
-
 #[derive(AssetCollection)]
 struct ImageAssets {
-    #[asset(path = "background.png")]
-    background: Handle<Image>,
-    #[asset(path = "arena.png")]
+    #[asset(path = "images/arena.png")]
     arena: Handle<Image>,
+    #[asset(path = "images/sword.png")]
+    sword: Handle<Image>,
 }
 
 fn main() {
@@ -27,73 +30,71 @@ fn main() {
     AssetLoader::new(MyStates::AssetLoading)
         .continue_to_state(MyStates::Next)
         .with_collection::<ImageAssets>()
-        .init_resource::<RepeatedBackgroundImage>()
         .build(&mut app);
 
     app.add_state(MyStates::AssetLoading)
         .insert_resource(Msaa { samples: 1 })
+        .insert_resource(ClearColor(Color::rgb(0.92, 0.92, 0.92)))
         .add_plugins(DefaultPlugins)
         .add_system_set(SystemSet::on_enter(MyStates::Next).with_system(draw))
+        .add_system_set(SystemSet::new()
+            .with_system(map_system)
+            .with_system(position_unit)
+            .with_system(moving_system))
         .run();
 }
 
-impl FromWorld for RepeatedBackgroundImage {
-    fn from_world(world: &mut World) -> Self {
-        let cell = world.cell();
-        let mut images = cell
-            .get_resource_mut::<Assets<Image>>()
-            .expect("Failed to get Assets<Image>");
-        let image_assets = cell
-            .get_resource::<ImageAssets>()
-            .expect("Failed to get ImageAssets");
 
-        let background_image = images.get(image_assets.background.clone()).unwrap();
-        let mut repeated = background_image.clone();
-        repeated.sampler_descriptor = SamplerDescriptor {
-            address_mode_u: bevy::render::render_resource::AddressMode::Repeat,
-            address_mode_v: bevy::render::render_resource::AddressMode::Repeat,
-            ..Default::default()
-        };
-        
-        RepeatedBackgroundImage {
-            repeated: images.add(repeated)
-        }
-    }
-}
-
-fn draw(mut commands: Commands, 
-    repeated_background: Res<RepeatedBackgroundImage>, 
+fn draw(mut commands: Commands,
     image_assets: Res<ImageAssets>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    let player_unit = commands.spawn_bundle(SpriteBundle {
+        texture: image_assets.sword.clone(),
+        transform: Transform::from_scale(Vec3::splat(0.75)),
+        ..Default::default()
+    })
+    .insert(Position::new(0, 1))
+    .insert(UnitType::Melee)
+    .insert(Party::Player)
+    .id();
+
+    let enemy_unit = commands.spawn_bundle(SpriteBundle {
+        texture: image_assets.sword.clone(),
+        transform: Transform::from_scale(Vec3::splat(0.75)),
+        ..Default::default()
+    })
+    .insert(Position::new(3, 5))
+    .insert(UnitType::Melee)
+    .insert(Party::Enemy)
+    .id();
+
+    
+    let enemy_unit_2 = commands.spawn_bundle(SpriteBundle {
+        texture: image_assets.sword.clone(),
+        transform: Transform::from_scale(Vec3::splat(0.75)),
+        ..Default::default()
+    })
+    .insert(Position::new(1, 5))
+    .insert(UnitType::Melee)
+    .insert(Party::Enemy)
+    .id();
+
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(SpriteBundle {
         texture: image_assets.arena.clone(),
-        transform: Transform::from_xyz(0., 0., -0.05),
+        transform: Transform::from_xyz(0., 0., -0.05).with_scale(Vec3::splat(0.8)),
         ..Default::default()
-    });
+    })
+    .add_child(player_unit)
+    .add_child(enemy_unit)
+    .add_child(enemy_unit_2);
+}
 
-    let material = ColorMaterial {
-        texture: Some(repeated_background.repeated.clone()),
-        color: Color::WHITE,
-    };
-
-    commands.spawn_bundle(MaterialMesh2dBundle {
-        mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
-        transform: Transform::default().with_scale(Vec3::splat(128.)),
-        material: materials.add(material),
-        ..Default::default()
-    });
-
-    // commands.spawn_bundle(SpriteBundle {
-    //     sprite: Sprite {
-    //         custom_size: Some(Vec2::splat(1.)),
-
-    //         ..Default::default()
-    //     },
-    //     texture: repeated_background.repeated.clone(),
-    //     transform: Transform::default().with_scale(Vec3::splat(20.0)),
-    //     ..Default::default()
-    // });
+fn position_unit(
+    mut unit_query: Query<(&Position, &mut Transform), Without<MovingFromCell>>
+) 
+{
+    for (pos, mut transform) in unit_query.iter_mut() {
+        transform.translation = pos.to_translation();
+    }
 }
