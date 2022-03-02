@@ -1,3 +1,7 @@
+use std::ops::DerefMut;
+
+use pathfinding::prelude::dijkstra;
+
 use crate::prelude::*;
 
 
@@ -10,6 +14,8 @@ pub fn map_system(
     let units : Vec<(Entity, &Position, &Party)> = units_query.iter()
         .map(|(e, pos, _, party, _, _)| (e, pos, party))
         .collect();
+
+    let unit_positions: Vec<&Position> = units.iter().map(|(_, pos, _)| *pos).collect();
 
 
     for (entity, mut pos, unit_type, party, is_moving, is_attacking) in units_query.iter_mut() {
@@ -31,34 +37,27 @@ pub fn map_system(
                 &UnitType::Ranged { range } => range,
             };
             if closest_player_unit.2 > unit_range as f32 {
-                // not in range to attack, move towards enemy
-                let new_pos: Position;
-                if closest_player_unit.1.x != pos.x {
-                    // try to move vertically first
-                    if closest_player_unit.1.x > pos.x {
-                        new_pos = Position::new(pos.x + 1, pos.y);
-                    } else {
-                        new_pos = Position::new(pos.x - 1, pos.y);
-                    }
-                } else {
-                    if closest_player_unit.1.y > pos.y {
-                        new_pos = Position::new(pos.x, pos.y + 1);
-                    } else {
-                        new_pos = Position::new(pos.x, pos.y - 1);
-                    }
-                };
+                let target_unit_position = *closest_player_unit.1;
+                println!("target_unit_position {:?}", target_unit_position);
+                // pathfind
+                let result = dijkstra(pos.deref_mut(), |p| {
+                    let mut successors = p.successors();
+                    successors.retain(|p| !unit_positions.contains(&p) || p == target_unit_position);
+                    successors.into_iter().map(|p| (p, 1)).collect::<Vec<(Position, usize)>>()
+                }, |p| p == target_unit_position);
 
-                if !units.iter().any(|(_, pos, _)| **pos == new_pos) {
 
+                if let Some((path, _)) = result {
+                    let new_pos = path.iter().nth(1).unwrap();
                     println!("new_pos: {:?}", new_pos);
 
                     commands.entity(entity)
                         .insert(MovingFromCell { position: *pos, time: 0. });
     
                     pos.assign(&new_pos);
+                } else {
+                    println!("no path found");
                 }
-
-
             }
             else
             {

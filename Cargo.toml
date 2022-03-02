@@ -17,3 +17,4 @@ opt-level = 3
 [dependencies]
 bevy = "0.6"
 bevy_asset_loader = "0.8"
+pathfinding = "3.0.10"

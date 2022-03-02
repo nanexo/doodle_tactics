@@ -48,6 +48,16 @@ impl Position {
         Vec3::new(LEFT + (self.x as f32) * STEP, TOP - (self.y as f32) * STEP, 0.)
     }
 
+    pub fn successors(&self) -> Vec<Position> {
+        let &Position {x, y }= self;
+        vec![
+            Position::new(x, y + 1),
+            Position::new(x, y - 1),
+            Position::new(x + 1, y),
+            Position::new(x - 1, y),
+        ]
+    }
+
 }
 
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
